@@ -1,9 +1,9 @@
 import asyncio
+import rfc3986
+import aiomysql
 import ipaddress
 
-import aiomysql
-import rfc3986
-
+from urllib.parse import urlparse
 from fastapi import FastAPI, Request
 from pydantic import BaseModel, HttpUrl
 from aiomysql.connection import Connection
@@ -41,15 +41,16 @@ def get_ip_from_request(request: Request) -> str:
 
 
 def normalize_url(url: str) -> str:
-    if url.endswith("index.html"):
-        url = url[:-10]
-
+    url = url.removesuffix("index.html")
     url = rfc3986.normalize_uri(url)
 
     # Cloudflare normalize
     url = url.replace("\\", "/")
     url = '/'.join(x for x in url.split('/') if x)
-
+    if url.startswith("http:/"):
+        url = "http://" + url.removeprefix("http:/")
+    if url.startswith("https:/"):
+        url = "https://" + url.removeprefix("https:/")
     return url
 
 
@@ -58,9 +59,10 @@ async def root():
     return {"message": "Hello World"}
 
 
-@app.post("/count")
-async def count(count_request: CountRequest, request: Request):
+@app.post("/page/count")
+async def page_count(count_request: CountRequest, request: Request):
     page_url = normalize_url(str(count_request.page_url))
+    site = urlparse(page_url).netloc
     ip = get_ip_from_request(request)
 
     conn: Connection = app.db_conn
@@ -68,9 +70,9 @@ async def count(count_request: CountRequest, request: Request):
     # Record access
     async with conn.cursor() as cur:
         await cur.execute("""
-                insert into access_record (url, ip_addr)
-                values (%s, %s);
-            """, (page_url, ip))
+                insert into access_record (url, site, ip_addr)
+                values (%s, %s, %s);
+            """, (page_url, site, ip))
         await conn.commit()
 
     # Count
@@ -99,6 +101,7 @@ async def startup():
             (
                 id      int auto_increment primary key ,
                 url     varchar(1024), 
+                site     varchar(64), 
                 ip_addr varchar(15)
             );""")
         await conn.commit()
