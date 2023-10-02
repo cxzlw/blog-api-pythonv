@@ -13,10 +13,8 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*", "https://blog.cxzlw.top"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],
+    allow_methods=["POST"],
 )
 
 cf_ips = []
@@ -119,7 +117,7 @@ async def startup():
                     id      int auto_increment primary key ,
                     url     varchar(1024), 
                     site     varchar(64), 
-                    ip_addr varchar(15)
+                    ip_addr varchar(64)
                 );""")
             await conn.commit()
 
