@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["cxzlw <wsc_zds@qq.com>"]
 readme = "README.md"
-packages = [{include = "blog_api_pythonv"}]
+packages = []
 
 [tool.poetry.dependencies]
 python = "^3.11"
