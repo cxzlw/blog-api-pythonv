@@ -20,9 +20,11 @@ class CountRequest(BaseModel):
     page_url: HttpUrl
 
 
-# class CountResponse(BaseModel):
-#     uv: int
-#     pv: int
+class CountResponse(BaseModel):
+    page_pv: int
+    page_uv: int
+    site_pv: int
+    site_uv: int
 
 
 def is_cloudflare_ip(ip: str) -> bool:
@@ -87,7 +89,7 @@ async def page_count(count_request: CountRequest, request: Request):
                 where site = %s; 
             """, (site,))
         site_pv, site_uv = await cur.fetchone()
-    return {"site": {"pv": site_pv, "uv": site_uv}, "page": {"pv": page_pv, "uv": page_uv}}
+    return CountResponse(page_pv=page_pv, page_uv=page_uv, site_pv=site_pv, site_uv=site_uv)
 
 
 @app.on_event("startup")
