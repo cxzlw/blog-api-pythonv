@@ -1,8 +1,12 @@
+import asyncio
 import ipaddress
+
+import aiomysql
 import rfc3986
 
 from fastapi import FastAPI, Request
 from pydantic import BaseModel, HttpUrl
+from aiomysql.connection import Connection
 
 app = FastAPI()
 
@@ -56,17 +60,51 @@ async def root():
 
 @app.post("/count")
 async def count(count_request: CountRequest, request: Request):
-    ip = get_ip_from_request(request)
     page_url = normalize_url(str(count_request.page_url))
+    ip = get_ip_from_request(request)
 
-    return {"page_url": page_url, "ip": ip}
+    conn: Connection = app.db_conn
+
+    # Record access
+    async with conn.cursor() as cur:
+        await cur.execute("""
+                insert into access_record (url, ip_addr)
+                values (%s, %s);
+            """, (page_url, ip))
+        await conn.commit()
+
+    # Count
+    async with conn.cursor() as cur:
+        await cur.execute("""
+                select count(ip_addr), count(DISTINCT ip_addr)
+                from access_record
+                where url = %s; 
+            """, (page_url,))
+        pv, uv = await cur.fetchone()
+
+    return {"pv": pv, "uv": uv}
 
 
 @app.on_event("startup")
 async def startup():
-    pass
+    conn: Connection = await aiomysql.connect(
+        host="127.0.0.1", user="blog_api_user",
+        password="", db="blog_api",
+        loop=asyncio.get_event_loop()
+    )
+    app.db_conn = conn
+    async with conn.cursor() as cur:
+        await cur.execute("""
+            create table if not exists access_record
+            (
+                id      int auto_increment primary key ,
+                url     varchar(1024), 
+                ip_addr varchar(15)
+            );""")
+        await conn.commit()
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    pass
+    if hasattr(app, "db_conn"):
+        app.db_conn.close()
