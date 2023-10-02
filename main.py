@@ -7,8 +7,15 @@ from urllib.parse import urlparse
 from fastapi import FastAPI, Request
 from pydantic import BaseModel, HttpUrl
 from aiomysql.connection import Connection
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["POST"],
+)
 
 cf_ips = []
 with open("cf_ips.txt") as f:
