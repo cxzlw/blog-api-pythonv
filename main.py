@@ -1,8 +1,72 @@
-from fastapi import FastAPI
+import ipaddress
+import rfc3986
+
+from fastapi import FastAPI, Request
+from pydantic import BaseModel, HttpUrl
 
 app = FastAPI()
+
+cf_ips = []
+with open("cf_ips.txt") as f:
+    for cidr in f.read().split("\n"):
+        cf_ips.append(ipaddress.ip_network(cidr))
+
+
+class CountRequest(BaseModel):
+    page_url: HttpUrl
+
+
+class CountResponse(BaseModel):
+    uv: int
+    pv: int
+
+
+def is_cloudflare_ip(ip: str) -> bool:
+    ip_addr = ipaddress.ip_address(ip)
+    for cf_ip in cf_ips:
+        if ip_addr in cf_ip:
+            return True
+    return False
+
+
+def get_ip_from_request(request: Request) -> str:
+    ip = request.client.host
+    if is_cloudflare_ip(ip):
+        return request.headers.get("CF-Connecting-IP")
+    return ip
+
+
+def normalize_url(url: str) -> str:
+    if url.endswith("index.html"):
+        url = url[:-10]
+
+    url = rfc3986.normalize_uri(url)
+
+    # Cloudflare normalize
+    url = url.replace("\\", "/")
+    url = '/'.join(x for x in url.split('/') if x)
+
+    return url
 
 
 @app.get("/")
 async def root():
-    return {"message": "Hello World. "}
+    return {"message": "Hello World"}
+
+
+@app.post("/count")
+async def count(count_request: CountRequest, request: Request):
+    ip = get_ip_from_request(request)
+    page_url = normalize_url(str(count_request.page_url))
+
+    return {"page_url": page_url, "ip": ip}
+
+
+@app.on_event("startup")
+async def startup():
+    pass
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    pass
