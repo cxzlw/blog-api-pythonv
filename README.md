@@ -4,5 +4,5 @@ Python implement of my blog's api.
 
 ## Features
 
-- [ ] record uv/pv
+- [ ] record uv&pv
 - [ ] comment
