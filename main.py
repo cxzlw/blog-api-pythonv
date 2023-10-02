@@ -1,4 +1,3 @@
-import asyncio
 import rfc3986
 import aiomysql
 import ipaddress
@@ -6,6 +5,7 @@ import ipaddress
 from urllib.parse import urlparse
 from fastapi import FastAPI, Request
 from pydantic import BaseModel, HttpUrl
+from aiomysql.pool import Pool
 from aiomysql.connection import Connection
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -74,52 +74,55 @@ async def page_count(count_request: CountRequest, request: Request):
     site = urlparse(page_url).netloc
     ip = get_ip_from_request(request)
 
-    conn: Connection = app.db_conn
+    pool: Pool = app.db_pool
 
-    async with conn.cursor() as cur:
-        await cur.execute("""
-                insert into access_record (url, site, ip_addr)
-                values (%s, %s, %s);
-            """, (page_url, site, ip))
-        await conn.commit()
+    async with pool.acquire() as conn:
+        conn: Connection
+        async with conn.cursor() as cur:
+            await cur.execute("""
+                    insert into access_record (url, site, ip_addr)
+                    values (%s, %s, %s);
+                """, (page_url, site, ip))
+            await conn.commit()
 
-        await cur.execute("""
-                select count(ip_addr), count(DISTINCT ip_addr)
-                from access_record
-                where url = %s; 
-            """, (page_url,))
-        page_pv, page_uv = await cur.fetchone()
+            await cur.execute("""
+                    select count(ip_addr), count(DISTINCT ip_addr)
+                    from access_record
+                    where url = %s; 
+                """, (page_url,))
+            page_pv, page_uv = await cur.fetchone()
 
-        await cur.execute("""
-                select count(ip_addr), count(DISTINCT ip_addr)
-                from access_record
-                where site = %s; 
-            """, (site,))
-        site_pv, site_uv = await cur.fetchone()
+            await cur.execute("""
+                    select count(ip_addr), count(DISTINCT ip_addr)
+                    from access_record
+                    where site = %s; 
+                """, (site,))
+            site_pv, site_uv = await cur.fetchone()
     return CountResponse(page_pv=page_pv, page_uv=page_uv, site_pv=site_pv, site_uv=site_uv)
 
 
 @app.on_event("startup")
 async def startup():
-    conn: Connection = await aiomysql.connect(
+    pool: Pool = await aiomysql.create_pool(
         host="127.0.0.1", user="blog_api_user",
         password="", db="blog_api",
-        loop=asyncio.get_event_loop()
     )
-    app.db_conn = conn
-    async with conn.cursor() as cur:
-        await cur.execute("""
-            create table if not exists access_record
-            (
-                id      int auto_increment primary key ,
-                url     varchar(1024), 
-                site     varchar(64), 
-                ip_addr varchar(15)
-            );""")
-        await conn.commit()
+    app.db_pool = pool
+    async with pool.acquire() as conn:
+        conn: Connection
+        async with conn.cursor() as cur:
+            await cur.execute("""
+                create table if not exists access_record
+                (
+                    id      int auto_increment primary key ,
+                    url     varchar(1024), 
+                    site     varchar(64), 
+                    ip_addr varchar(15)
+                );""")
+            await conn.commit()
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    if hasattr(app, "db_conn"):
-        app.db_conn.close()
+    if hasattr(app, "db_pool"):
+        app.db_pool.close()
