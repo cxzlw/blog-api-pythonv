@@ -20,9 +20,9 @@ class CountRequest(BaseModel):
     page_url: HttpUrl
 
 
-class CountResponse(BaseModel):
-    uv: int
-    pv: int
+# class CountResponse(BaseModel):
+#     uv: int
+#     pv: int
 
 
 def is_cloudflare_ip(ip: str) -> bool:
@@ -59,7 +59,7 @@ async def root():
     return {"message": "Hello World"}
 
 
-@app.post("/page/count")
+@app.post("/count")
 async def page_count(count_request: CountRequest, request: Request):
     page_url = normalize_url(str(count_request.page_url))
     site = urlparse(page_url).netloc
@@ -67,7 +67,6 @@ async def page_count(count_request: CountRequest, request: Request):
 
     conn: Connection = app.db_conn
 
-    # Record access
     async with conn.cursor() as cur:
         await cur.execute("""
                 insert into access_record (url, site, ip_addr)
@@ -75,44 +74,20 @@ async def page_count(count_request: CountRequest, request: Request):
             """, (page_url, site, ip))
         await conn.commit()
 
-    # Count
-    async with conn.cursor() as cur:
         await cur.execute("""
                 select count(ip_addr), count(DISTINCT ip_addr)
                 from access_record
                 where url = %s; 
             """, (page_url,))
-        pv, uv = await cur.fetchone()
+        page_pv, page_uv = await cur.fetchone()
 
-    return {"pv": pv, "uv": uv}
-
-
-@app.post("/site/count")
-async def site_count(count_request: CountRequest, request: Request):
-    page_url = normalize_url(str(count_request.page_url))
-    site = urlparse(page_url).netloc
-    ip = get_ip_from_request(request)
-
-    conn: Connection = app.db_conn
-
-    # Record access
-    async with conn.cursor() as cur:
-        await cur.execute("""
-                insert into access_record (url, site, ip_addr)
-                values (%s, %s, %s);
-            """, (page_url, site, ip))
-        await conn.commit()
-
-    # Count
-    async with conn.cursor() as cur:
         await cur.execute("""
                 select count(ip_addr), count(DISTINCT ip_addr)
                 from access_record
                 where site = %s; 
             """, (site,))
-        pv, uv = await cur.fetchone()
-
-    return {"pv": pv, "uv": uv}
+        site_pv, site_uv = await cur.fetchone()
+    return {"site": {"pv": site_pv, "uv": site_uv}, "page": {"pv": page_pv, "uv": page_uv}}
 
 
 @app.on_event("startup")
