@@ -87,6 +87,34 @@ async def page_count(count_request: CountRequest, request: Request):
     return {"pv": pv, "uv": uv}
 
 
+@app.post("/site/count")
+async def site_count(count_request: CountRequest, request: Request):
+    page_url = normalize_url(str(count_request.page_url))
+    site = urlparse(page_url).netloc
+    ip = get_ip_from_request(request)
+
+    conn: Connection = app.db_conn
+
+    # Record access
+    async with conn.cursor() as cur:
+        await cur.execute("""
+                insert into access_record (url, site, ip_addr)
+                values (%s, %s, %s);
+            """, (page_url, site, ip))
+        await conn.commit()
+
+    # Count
+    async with conn.cursor() as cur:
+        await cur.execute("""
+                select count(ip_addr), count(DISTINCT ip_addr)
+                from access_record
+                where site = %s; 
+            """, (site,))
+        pv, uv = await cur.fetchone()
+
+    return {"pv": pv, "uv": uv}
+
+
 @app.on_event("startup")
 async def startup():
     conn: Connection = await aiomysql.connect(
