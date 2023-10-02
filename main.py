@@ -36,7 +36,7 @@ def is_cloudflare_ip(ip: str) -> bool:
 def get_ip_from_request(request: Request) -> str:
     ip = request.client.host
     if is_cloudflare_ip(ip):
-        return request.headers.get("CF-Connecting-IP")
+        return request.headers.get("CF-Connecting-IP") or ip
     return ip
 
 
