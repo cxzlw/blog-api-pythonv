@@ -103,6 +103,32 @@ async def page_count(count_request: CountRequest, request: Request):
     return CountResponse(page_pv=page_pv, page_uv=page_uv, site_pv=site_pv, site_uv=site_uv)
 
 
+@app.get("/count")
+async def only_get_page_count(page_url: str):
+    page_url, site = process_url(page_url)
+
+    pool: Pool = app.db_pool
+
+    async with pool.acquire() as conn:
+        conn: Connection
+        async with conn.cursor() as cur:
+            await cur.execute("""
+                    select count(ip_addr), count(DISTINCT ip_addr)
+                    from access_record
+                    where url = %s; 
+                """, (page_url,))
+            page_pv, page_uv = await cur.fetchone()
+
+            await cur.execute("""
+                    select count(ip_addr), count(DISTINCT ip_addr)
+                    from access_record
+                    where site = %s; 
+                """, (site,))
+            site_pv, site_uv = await cur.fetchone()
+
+    return CountResponse(page_pv=page_pv, page_uv=page_uv, site_pv=site_pv, site_uv=site_uv)
+
+
 @app.on_event("startup")
 async def startup():
     pool: Pool = await aiomysql.create_pool(
