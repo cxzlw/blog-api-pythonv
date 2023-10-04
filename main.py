@@ -49,7 +49,7 @@ def get_ip_from_request(request: Request) -> str:
     return ip
 
 
-def normalize_url(url: str) -> str:
+def process_url(url: str) -> tuple[str, str]:
     url = url.removesuffix("index.html")
     url = rfc3986.normalize_uri(url)
 
@@ -63,7 +63,7 @@ def normalize_url(url: str) -> str:
     # Cloudflare normalize
     url = '/'.join(x for x in url.split('/') if x)
 
-    return protocol + "//" + url
+    return url, netloc
 
 
 @app.get("/")
@@ -73,9 +73,8 @@ async def root():
 
 @app.post("/count")
 async def page_count(count_request: CountRequest, request: Request):
-    page_url = normalize_url(str(count_request.page_url))
-    site = urlparse(page_url).netloc
-    ip = get_ip_from_request(request)
+    page_url, site = process_url(str(count_request.page_url))
+    user_ip = get_ip_from_request(request)
 
     pool: Pool = app.db_pool
 
@@ -85,7 +84,7 @@ async def page_count(count_request: CountRequest, request: Request):
             await cur.execute("""
                     insert into access_record (url, site, ip_addr)
                     values (%s, %s, %s);
-                """, (page_url, site, ip))
+                """, (page_url, site, user_ip))
             await conn.commit()
 
             await cur.execute("""
