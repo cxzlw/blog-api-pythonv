@@ -53,8 +53,9 @@ def normalize_url(url: str) -> str:
     url = url.removesuffix("index.html")
     url = rfc3986.normalize_uri(url)
 
-    # Remove protocol, query and hash.
+    # Remove query and hash.
     parsed = rfc3986.urlparse(url)
+    protocol = parsed.scheme
     netloc = parsed.netloc
     path = parsed.path or ""
     url = netloc + path
@@ -62,7 +63,7 @@ def normalize_url(url: str) -> str:
     # Cloudflare normalize
     url = '/'.join(x for x in url.split('/') if x)
 
-    return url
+    return protocol + "//" + url
 
 
 @app.get("/")
