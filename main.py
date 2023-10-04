@@ -53,13 +53,15 @@ def normalize_url(url: str) -> str:
     url = url.removesuffix("index.html")
     url = rfc3986.normalize_uri(url)
 
+    # Remove protocol, query and hash.
+    parsed = rfc3986.urlparse(url)
+    netloc = parsed.netloc
+    path = parsed.path or ""
+    url = netloc + path
+
     # Cloudflare normalize
-    url = url.replace("\\", "/")
     url = '/'.join(x for x in url.split('/') if x)
-    if url.startswith("http:/"):
-        url = "http://" + url.removeprefix("http:/")
-    if url.startswith("https:/"):
-        url = "https://" + url.removeprefix("https:/")
+
     return url
 
 
