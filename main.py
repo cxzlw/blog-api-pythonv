@@ -130,7 +130,11 @@ async def only_get_page_count(page_url: str, request: Request) -> CountResponse:
             site_pv, site_uv = await cur.fetchone()
 
     return CountResponse(
-        page_pv=page_pv, page_uv=page_uv, page_mv=page_mv, site_pv=site_pv, site_uv=site_uv
+        page_pv=page_pv,
+        page_uv=page_uv,
+        page_mv=page_mv,
+        site_pv=site_pv,
+        site_uv=site_uv,
     )
 
 
