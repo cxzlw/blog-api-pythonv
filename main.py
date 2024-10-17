@@ -2,7 +2,6 @@ import rfc3986
 import aiomysql
 import ipaddress
 
-from urllib.parse import urlparse
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from aiomysql.pool import Pool
@@ -14,7 +13,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["POST"],
+    allow_methods=["GET", "POST"],
 )
 
 cf_ips = []
@@ -68,30 +67,8 @@ async def root():
     return {"message": "Hello World"}
 
 
-@app.post("/count")
-async def page_count(page_url: str, request: Request):
-    page_url, site = process_url(page_url)
-    user_ip = get_ip_from_request(request)
-
-    pool: Pool = app.db_pool
-
-    async with pool.acquire() as conn:
-        conn: Connection
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
-                    insert into access_record (url, site, ip_addr)
-                    values (%s, %s, %s);
-                """,
-                (page_url, site, user_ip),
-            )
-            await conn.commit()
-
-    return await only_get_page_count(page_url)
-
-
 @app.get("/count")
-async def only_get_page_count(page_url: str, request: Request) -> CountResponse:
+async def get_page_count(page_url: str, request: Request) -> CountResponse:
     page_url, site = process_url(page_url)
     user_ip = get_ip_from_request(request)
     pool: Pool = app.db_pool
@@ -135,6 +112,30 @@ async def only_get_page_count(page_url: str, request: Request) -> CountResponse:
         page_mv=page_mv,
         site_pv=site_pv,
         site_uv=site_uv,
+    )
+
+
+@app.post("/count")
+async def post_page_count(page_url: str, request: Request):
+    page_url, site = process_url(page_url)
+    user_ip = get_ip_from_request(request)
+
+    pool: Pool = app.db_pool
+
+    async with pool.acquire() as conn:
+        conn: Connection
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                    insert into access_record (url, site, ip_addr)
+                    values (%s, %s, %s);
+                """,
+                (page_url, site, user_ip),
+            )
+            await conn.commit()
+
+    return await get_page_count(
+        page_url,
     )
 
 
