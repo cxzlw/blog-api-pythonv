@@ -69,7 +69,7 @@ async def root():
 
 @app.get("/count")
 async def get_page_count(page_url: str, request: Request) -> CountResponse:
-    page_url, site = process_url(page_url)
+    processed_page_url, site = process_url(page_url)
     user_ip = get_ip_from_request(request)
     pool: Pool = app.db_pool
 
@@ -82,7 +82,7 @@ async def get_page_count(page_url: str, request: Request) -> CountResponse:
                     from access_record
                     where url = %s; 
                 """,
-                (page_url,),
+                (processed_page_url,),
             )
             page_pv, page_uv = await cur.fetchone()
 
@@ -92,7 +92,7 @@ async def get_page_count(page_url: str, request: Request) -> CountResponse:
                     from access_record
                     where url = %s and ip_addr = %s; 
                 """,
-                (page_url, user_ip),
+                (processed_page_url, user_ip),
             )
             (page_mv,) = await cur.fetchone()
 
@@ -117,7 +117,7 @@ async def get_page_count(page_url: str, request: Request) -> CountResponse:
 
 @app.post("/count")
 async def post_page_count(page_url: str, request: Request):
-    page_url, site = process_url(page_url)
+    processed_page_url, site = process_url(page_url)
     user_ip = get_ip_from_request(request)
 
     pool: Pool = app.db_pool
@@ -130,7 +130,7 @@ async def post_page_count(page_url: str, request: Request):
                     insert into access_record (url, site, ip_addr)
                     values (%s, %s, %s);
                 """,
-                (page_url, site, user_ip),
+                (processed_page_url, site, user_ip),
             )
             await conn.commit()
 
