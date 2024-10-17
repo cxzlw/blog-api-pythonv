@@ -13,6 +13,7 @@ fastapi = "^0.103.2"
 uvicorn = "^0.23.2"
 aiomysql = "^0.2.0"
 rfc3986 = "^2.0.0"
+black = "^24.10.0"
 
 
 [build-system]
