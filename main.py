@@ -134,9 +134,7 @@ async def post_page_count(page_url: str, request: Request):
             )
             await conn.commit()
 
-    return await get_page_count(
-        page_url,
-    )
+    return await get_page_count(page_url, request)
 
 
 @app.on_event("startup")
