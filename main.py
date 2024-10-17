@@ -94,7 +94,7 @@ async def get_page_count(page_url: str, request: Request) -> CountResponse:
                 """,
                 (page_url, user_ip),
             )
-            page_mv = await cur.fetchone()
+            (page_mv,) = await cur.fetchone()
 
             await cur.execute(
                 """
