@@ -106,6 +106,8 @@ async def get_page_count(page_url: str, request: Request) -> CountResponse:
             )
             site_pv, site_uv = await cur.fetchone()
 
+            await conn.commit()
+
     return CountResponse(
         page_pv=page_pv,
         page_uv=page_uv,
@@ -144,6 +146,7 @@ async def startup():
         user="blog_api_user",
         password="",
         db="blog_api",
+        autocommit=True,
     )
     app.db_pool = pool
     async with pool.acquire() as conn:
