@@ -118,7 +118,7 @@ async def get_page_count(page_url: str, request: Request) -> CountResponse:
 
 
 @app.post("/count")
-async def post_page_count(page_url: str, request: Request):
+async def post_page_count(page_url: str, request: Request) -> CountResponse:
     processed_page_url, site = process_url(page_url)
     user_ip = get_ip_from_request(request)
 
